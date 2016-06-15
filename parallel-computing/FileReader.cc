@@ -10,7 +10,8 @@ string FileReader::read(filesystem::path path) {
   assert(!ifs.fail());
   auto length = static_cast<streamoff>(ifs.tellg());
   ifs.seekg(0, ios::beg);
-  char *programData = new char[length];
+  char *programData = new char[length + 1];
   ifs.read(programData, length);
+  programData[length] = '\0';
   return string(move(programData));
 }

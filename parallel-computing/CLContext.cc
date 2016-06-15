@@ -22,7 +22,7 @@ cl::Program CLContext::loadProgram(const string &source) const {
     program.build("-Werror");
   } catch (cl::Error error) {
     cerr << "Build failed with code " << error.err() << '.' << endl
-        << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices.front()) << endl;
+         << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices.front()) << endl;
     exit(-2);
   }
   return program;

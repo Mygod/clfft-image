@@ -1,12 +1,6 @@
-//
-// Created by mygod on 6/15/16.
-//
-
 #include "CLContext.h"
 
 #include "boost/date_time/posix_time/posix_time.hpp"
-
-#include "CLPlatform.h"
 
 using namespace boost;
 using namespace boost::posix_time;
@@ -22,14 +16,8 @@ CLContext::CLContext(const vector<cl::Device> &devices) : devices(devices), cont
   assert(!devices.empty());
 }
 
-cl::Program CLContext::loadProgram(const filesystem::path &path) const {
-  filesystem::ifstream ifs(filesystem::absolute(path, CLPlatform::baseDirectory), ios::ate);
-  assert(!ifs.fail());
-  auto length = static_cast<streamoff>(ifs.tellg());
-  ifs.seekg(0, ios::beg);
-  char *programData = new char[length];
-  ifs.read(programData, length);
-  cl::Program program(context, string(move(programData)));
+cl::Program CLContext::loadProgram(const string &source) const {
+  cl::Program program(context, source);
   try {
     program.build("-Werror");
   } catch (cl::Error error) {

@@ -10,7 +10,7 @@ link_directories(${OpenCL_LIBRARY})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
-set(SOURCE_FILES CLContext.h CLContext.cc CLPlatform.h CLPlatform.cc pfft.cc)
+set(SOURCE_FILES CLContext.h CLContext.cc CLPlatform.h CLPlatform.cc FileReader.h FileReader.cc pfft.cc)
 add_executable(pfft ${SOURCE_FILES})
 target_link_libraries(pfft ${Boost_DATE_TIME_LIBRARIES} ${Boost_FILESYSTEM_LIBRARIES} ${Boost_SYSTEM_LIBRARIES}
         ${OpenCL_LIBRARY})

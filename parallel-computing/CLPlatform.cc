@@ -3,11 +3,6 @@
 using namespace boost;
 using namespace std;
 
-filesystem::path CLPlatform::baseDirectory;
-void CLPlatform::init(const char *basePath) {
-  baseDirectory = filesystem::path(basePath).parent_path();
-}
-
 vector<CLPlatform> CLPlatform::list() {
   vector<CLPlatform> result;
   vector<cl::Platform> raw;

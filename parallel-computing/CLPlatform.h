@@ -7,8 +7,6 @@
 
 class CLPlatform {
  public:
-  static boost::filesystem::path baseDirectory;
-  static void init(const char *basePath);
   static std::vector<CLPlatform> list();
 
   cl::Platform platform;

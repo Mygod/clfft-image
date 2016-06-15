@@ -1,16 +1,3 @@
-__kernel void hello_world(__global char *str) {
-  str[0] = 'H';
-  str[1] = 'e';
-  str[2] = 'l';
-  str[3] = 'l';
-  str[4] = 'o';
-  str[5] = ',';
-  str[6] = ' ';
-  str[7] = 'W';
-  str[8] = 'o';
-  str[9] = 'r';
-  str[10] = 'l';
-  str[11] = 'd';
-  str[12] = '!';
-  str[13] = '\0';
+__kernel void hello_world(__global char16 *str) {
+  *str = (char16) ('H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\0', '\0', '\0');
 }

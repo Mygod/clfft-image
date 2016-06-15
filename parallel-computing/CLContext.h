@@ -13,7 +13,7 @@ class CLContext {
   bool failFlag = false;
 
   CLContext(const std::vector<cl::Device> &devices);
-  cl::Program loadProgram(const boost::filesystem::path &path) const;
+  cl::Program loadProgram(const std::string &source) const;
 
   inline operator cl::Context() {
     return context;

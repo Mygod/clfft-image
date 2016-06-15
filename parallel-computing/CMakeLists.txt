@@ -23,5 +23,4 @@ target_link_libraries(pfft ${Boost_DATE_TIME_LIBRARIES} ${Boost_FILESYSTEM_LIBRA
         ${Boost_SYSTEM_LIBRARIES} ${OpenCL_LIBRARIES} ${CLFFT_LIBRARIES} ${png++_LIBRARIES})
 
 add_custom_command(TARGET pfft PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/input.png $<TARGET_FILE_DIR:pfft>/input.png
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/kernel.cl $<TARGET_FILE_DIR:pfft>/kernel.cl)

@@ -1,18 +1,20 @@
 #ifndef PARALLEL_COMPUTING_CLFFT_H
 #define PARALLEL_COMPUTING_CLFFT_H
 
+#include <boost/noncopyable.hpp>
 #include <CL/cl.hpp>
 #include <clFFT.h>
 
 namespace cl {
+// A C++ wrapper for clFFT library.
 namespace FFT {
-class InitHelper {
+class InitHelper : boost::noncopyable {
  public:
   InitHelper();
   ~InitHelper();
 };
 
-class Plan {
+class Plan : boost::noncopyable {
  private:
   clfftPlanHandle handle;
  public:

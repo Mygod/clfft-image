@@ -23,7 +23,7 @@ inline unsigned long pad(unsigned long length) {
 }
 
 int main(int argc, char **argv) {
-  shared_ptr<imageType> rawImage = make_shared<imageType>("input.png"), image;
+  shared_ptr<imageType> rawImage = make_shared<imageType>(argc > 1 ? argv[1] : "input.png"), image;
   unsigned long w = rawImage->get_width(), h = rawImage->get_height(),
                 width = pad(w), height = pad(h), size = width * height;
   if (w == width && h == height) image = rawImage; else {
@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
     cerr << error.what() << " failed with code " << error.err() << endl;
     return -1;
   }
-  rawImage->write("output.png");
+  image->write("output.png");
   cl::FFT::teardown();
   return 0;
 }

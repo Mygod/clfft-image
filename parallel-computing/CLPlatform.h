@@ -1,7 +1,7 @@
 #ifndef PARALLEL_COMPUTING_CLPLATFORM_H
 #define PARALLEL_COMPUTING_CLPLATFORM_H
 
-#include "boost/filesystem.hpp"
+#include <boost/filesystem.hpp>
 
 #include "CLContext.h"
 

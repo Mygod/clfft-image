@@ -4,12 +4,12 @@ using cl::detail::errHandler;
 
 #define __ERR_STR(x) #x
 
-void cl::FFT::setup() {
+cl::FFT::InitHelper::InitHelper() {
   clfftSetupData setup;
   errHandler(clfftInitSetupData(&setup), __ERR_STR(clfftInitSetupData));
   errHandler(clfftSetup(&setup), __ERR_STR(clfftSetup));
 }
-void cl::FFT::teardown() {
+cl::FFT::InitHelper::~InitHelper() {
   errHandler(clfftTeardown(), __ERR_STR(clfftTeardown));
 }
 

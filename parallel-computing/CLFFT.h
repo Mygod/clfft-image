@@ -6,8 +6,11 @@
 
 namespace cl {
 namespace FFT {
-void setup();
-void teardown();
+class InitHelper {
+ public:
+  InitHelper();
+  ~InitHelper();
+};
 
 class Plan {
  private:

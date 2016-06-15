@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
   od.add_options()("help,h", "produce this help message")
       ("platform,p", program_options::value(&platformIndex)->default_value(0), "OpenGL platform that one wishes to use")
       ("device,d", program_options::value(&deviceIndex)->default_value(0), "OpenGL device that one wishes to use")
+      ("verbose,v", "display more information when building OpenCL programs")
       ("input,i", program_options::value(&input), "input PNG file(s) (-i, --input can be omitted)")
       ("output,o", program_options::value(&output), "output PNG file(s) (default = output{i}.png)");
   program_options::positional_options_description pod;
@@ -55,6 +56,7 @@ int main(int argc, char **argv) {
     ignore_unused(_);
     auto platform = CLPlatform::list()[platformIndex];
     auto context = platform.createContext();
+    if (vm.count("verbose")) context.verbose = true;
     auto program = context.loadProgram(FileReader::read("kernel.cl"));
 #define DEFINE_KERNEL(x) cl::Kernel x(program, #x)
     DEFINE_KERNEL(inputX);

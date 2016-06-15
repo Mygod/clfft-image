@@ -19,7 +19,9 @@ CLContext::CLContext(const vector<cl::Device> &devices) : devices(devices), cont
 cl::Program CLContext::loadProgram(const string &source) const {
   cl::Program program(context, source);
   try {
-    program.build("-Werror");
+    program.build(verbose ? "-Werror" : nullptr);
+    if (verbose)
+      cerr << "Build succeeded." << endl << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices.front()) << endl;
   } catch (cl::Error error) {
     cerr << "Build failed with code " << error.err() << '.' << endl
          << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices.front()) << endl;

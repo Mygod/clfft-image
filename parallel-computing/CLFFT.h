@@ -13,8 +13,6 @@ class Plan {
  private:
   clfftPlanHandle handle;
  public:
-  bool failFlag = false;
-
   inline Plan() : handle(0) { }
   Plan(cl::Context context, std::size_t x);
   Plan(cl::Context context, std::size_t x, std::size_t y);

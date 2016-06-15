@@ -28,8 +28,11 @@ int main(int argc, char **argv) {
                 width = pad(w), height = pad(h), size = width * height;
   if (w == width && h == height) image = rawImage; else {
     image = make_shared<imageType>(width, height);
-    size_t l = static_cast<size_t>(w) * 3;
-    for (unsigned long i = 0; i < height; ++i) memcpy(image->get_pixbuf()[i], image->get_pixbuf()[i], l);
+    size_t l = static_cast<size_t>(w) * 3, s = static_cast<size_t>(width - w) * 3;
+    for (unsigned long i = 0; i < height; ++i) {
+      memcpy(image->get_pixbuf()[i], rawImage->get_pixbuf()[i], l);
+      memset(image->get_pixbuf()[i], 0, s);
+    }
   }
   FileReader::init(argv[0]);
   auto source = FileReader::read("kernel.cl");
@@ -56,6 +59,7 @@ int main(int argc, char **argv) {
     plan.setResultLocation(CLFFT_INPLACE);
     plan.setScale(CLFFT_FORWARD, 1.F / width / height); // since it's used for output
 
+    queue.enqueueWriteBuffer(bitmap, CL_FALSE, 0, 3 * size, image->get_pixbuf()[0]);
     queue.enqueueNDRangeKernel(inputX, cl::NullRange, cl::NDRange(width, height), cl::NDRange(1, 1));
     plan.enqueueTransform(CLFFT_FORWARD, queue, temp);
     queue.enqueueNDRangeKernel(outputX, cl::NullRange, cl::NDRange(width, height), cl::NDRange(1, 1));
@@ -65,8 +69,7 @@ int main(int argc, char **argv) {
     queue.enqueueNDRangeKernel(inputZ, cl::NullRange, cl::NDRange(width, height), cl::NDRange(1, 1));
     plan.enqueueTransform(CLFFT_FORWARD, queue, temp);
     queue.enqueueNDRangeKernel(outputZ, cl::NullRange, cl::NDRange(width, height), cl::NDRange(1, 1));
-    queue.finish();
-    assert(!plan.failFlag);
+    queue.enqueueReadBuffer(bitmap, CL_TRUE, 0, 3 * size, image->get_pixbuf()[0]);
     assert(!context.failFlag);
   } catch (cl::Error error) {
     cerr << error.what() << " failed with code " << error.err() << endl;

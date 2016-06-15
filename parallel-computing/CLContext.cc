@@ -24,6 +24,7 @@ CLContext::CLContext(const vector<cl::Device> &devices) : devices(devices), cont
 
 cl::Program CLContext::loadProgram(const filesystem::path &path) const {
   filesystem::ifstream ifs(filesystem::absolute(path, CLPlatform::baseDirectory), ios::ate);
+  assert(!ifs.fail());
   auto length = static_cast<streamoff>(ifs.tellg());
   ifs.seekg(0, ios::beg);
   char *programData = new char[length];

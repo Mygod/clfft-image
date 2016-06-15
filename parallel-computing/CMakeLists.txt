@@ -16,4 +16,4 @@ target_link_libraries(pfft ${Boost_DATE_TIME_LIBRARIES} ${Boost_FILESYSTEM_LIBRA
         ${OpenCL_LIBRARY})
 
 add_custom_command(TARGET pfft POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/cl $<TARGET_FILE_DIR:pfft>/cl)
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/kernel.cl $<TARGET_FILE_DIR:pfft>/kernel.cl)

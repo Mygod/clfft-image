@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
     for (auto platform : platforms) if (!platform.devices.empty()) {
       auto context = platform.createContext();
       cl::Buffer buffer(context, CL_MEM_WRITE_ONLY, 32 * sizeof(char));
-      auto program = context.loadProgram("cl/kernel.cl");
+      auto program = context.loadProgram("kernel.cl");
       cl::Kernel kernel(program, "hello_world");
       kernel.setArg(0, buffer);
       for (auto device : context.devices) {

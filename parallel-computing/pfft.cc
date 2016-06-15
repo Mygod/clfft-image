@@ -56,7 +56,12 @@ int main(int argc, char **argv) {
     ignore_unused(_);
     auto platform = CLPlatform::list()[platformIndex];
     auto context = platform.createContext();
-    if (vm.count("verbose")) context.verbose = true;
+    auto device = context.devices[deviceIndex];
+    if (vm.count("verbose")) {
+      context.verbose = true;
+      cerr << "Using OpenCL platform: " << platform.platform.getInfo<CL_PLATFORM_NAME>() << endl
+           << "Using OpenCL device: " << device.getInfo<CL_DEVICE_NAME>() << endl;
+    }
     auto program = context.loadProgram(FileReader::read("kernel.cl"));
 #define DEFINE_KERNEL(x) cl::Kernel x(program, #x)
     DEFINE_KERNEL(inputX);
@@ -66,7 +71,6 @@ int main(int argc, char **argv) {
     DEFINE_KERNEL(outputY);
     DEFINE_KERNEL(outputZ);
 #undef DEFINE_KERNEL
-    auto device = context.devices[deviceIndex];
     cl::CommandQueue queue(context, device);
 
     int count = 0;

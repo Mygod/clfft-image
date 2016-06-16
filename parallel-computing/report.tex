@@ -1,0 +1,385 @@
+\documentclass{article}
+\usepackage{amsmath, color, listings, mathrsfs}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{
+frame=tb,
+  language=C,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true
+}
+
+\begin{document}
+
+  \title{Parallel FFT with OpenCL}
+
+  \maketitle
+
+  This program does the following:
+
+  \begin{itemize}
+  \item Take in a 2-dimensional PNG image, convert its colorspace to 24-bit RGB if it's not;
+  \item Multiply every pixel with $\left(-1\right)^{\left(x + y\right)}$ to move the low frequency part to the center
+        of the image, since $ \mathscr{F}\left(f\left(x, y\right) \left(-1\right)^{\left(x + y\right)}\right)
+         = \mathscr{F}\left(u - \frac{M}{2}, v - \frac{N}{2}\right) $.
+
+        Proof:
+        \begin{equation*}
+        \begin{aligned}
+        \mathscr{F}\left(f\left(x, y\right) \left(-1\right)^{x + y}\right)\left(u, v\right)
+          &= \sum\limits_{x = 1}^N \sum\limits_{y = 1}^M f\left(x, y\right) \left(-1\right)^{x + y}
+             e^{-2 \pi i \frac{ux + vy}{MN}} \\
+          &= \sum\limits_{x = 1}^N \sum\limits_{y = 1}^M f\left(x, y\right) e^{\pi i \left(x + y\right)}
+             e^{-2 \pi i \frac{ux + vy}{MN}} \\
+          &= \sum\limits_{x = 1}^N \sum\limits_{y = 1}^M f\left(x, y\right)
+             e^{-2 \pi i \frac{\left(u - \frac{M}{2}\right)x + \left(v - \frac{N}{2}\right)y}{MN}} \\
+          &= \mathscr{F}\left(u - \frac{M}{2}, v - \frac{N}{2}\right)\left(u, v\right).
+        \end{aligned}
+        \end{equation*}
+  \item Do a fast fourier transform on each channel (R, G and B) in the transformed image after zero-padding the image
+        so that width and length of the image are both powers of 2, 3, 5 and 7 (limited by clFFT library). For example,
+        an image of size 1300x1300 will be zero-padded to 1323x1323, since $ 1323 = 3^3 \times 7^2 $.
+  \item The result is visualized using the following equation before saving the new PNG to disk:
+        $$ f'\left(x, y\right) =
+            255 \log_{256} \left(1 + \frac{\left|\mathscr{F}\left(x, y\right)\right|}{MN}\right). $$
+  \end{itemize}
+
+
+  \section{Advantages of using OpenCL}
+
+  OpenCL is a framework for writing programs that execute across heterogeneous platforms consisting of central
+  processing units (CPUs), graphics processing units (GPUs), digital signal processors (DSPs), field-programmable gate
+  arrays (FPGAs) and other processors or hardware accelerators. And thus one can take advantage of all the available
+  computing resources on a computer without the hassle of writing code individually for each device. OpenCL uses a
+  programming language that is based on C99 so it's also faster to get started.
+
+  Here is the kernel function for preparing 2D FFT data from one of the channels in the bitmap and visualizing the
+  output FFT gives.
+
+  \begin{lstlisting}
+__kernel void inputX(__global char *bitmap, __global float2 *in,
+                       int width) {
+  int x = get_global_id(0), y = get_global_id(1), i = y * width + x;
+  in[i] = (float2) ((x + y) & 1 ? -(float) bitmap[i * 3] : bitmap[i * 3],
+                      0);
+}
+
+__kernel void outputX(__global char *bitmap, __global float2 *out,
+                        int width) {
+  int x = get_global_id(0), y = get_global_id(1), i = y * width + x;
+  bitmap[i * 3] = (char) 105.886458025 *
+    log(1 + sqrt(out[i].x * out[i].x + out[i].y * out[i].y));
+}
+  \end{lstlisting}
+
+  OpenCL compiles these kernel functions and run-time but it's only needed once for every run and takes less than 1
+  second so its impact can be ignored.
+
+
+  \section{Performance comparison between CPU and GPU}
+
+  One can query all the available OpenCL devices with a utility called clinfo.
+
+  \begin{lstlisting}[language={}]
+$ clinfo
+Number of platforms                               2
+  Platform Name                                   Intel(R) OpenCL
+  Platform Vendor                                 Intel(R) Corporation
+  Platform Version                                OpenCL 1.2 LINUX
+  Platform Profile                                FULL_PROFILE
+  Platform Extensions                             cl_khr_icd cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store cl_khr_depth_images cl_khr_3d_image_writes cl_intel_exec_by_local_thread cl_khr_spir cl_khr_fp64 
+  Platform Extensions function suffix             INTEL
+
+  Platform Name                                   NVIDIA CUDA
+  Platform Vendor                                 NVIDIA Corporation
+  Platform Version                                OpenCL 1.1 CUDA 6.5.51
+  Platform Profile                                FULL_PROFILE
+  Platform Extensions                             cl_khr_byte_addressable_store cl_khr_icd cl_khr_gl_sharing cl_nv_compiler_options cl_nv_device_attribute_query cl_nv_pragma_unroll cl_nv_copy_opts 
+  Platform Extensions function suffix             NV
+
+  Platform Name                                   Intel(R) OpenCL
+Number of devices                                 1
+  Device Name                                     Intel(R) Core(TM) i5-3230M CPU @ 2.60GHz
+  Device Vendor                                   Intel(R) Corporation
+  Device Vendor ID                                0x8086
+  Device Version                                  OpenCL 1.2 (Build 10002)
+  Driver Version                                  1.2.0.10002
+  Device OpenCL C Version                         OpenCL C 1.2 
+  Device Type                                     CPU
+  Device Profile                                  FULL_PROFILE
+  Max compute units                               4
+  Max clock frequency                             2600MHz
+  Device Partition                                (core)
+    Max number of sub-devices                     4
+    Supported partition types                     by counts, equally, by names (Intel)
+  Max work item dimensions                        3
+  Max work item sizes                             8192x8192x8192
+  Max work group size                             8192
+  Preferred work group size multiple              128
+  Preferred / native vector sizes                 
+    char                                                 1 / 16      
+    short                                                1 / 8       
+    int                                                  1 / 4       
+    long                                                 1 / 2       
+    half                                                 0 / 0        (n/a)
+    float                                                1 / 8       
+    double                                               1 / 4        (cl_khr_fp64)
+  Half-precision Floating-point support           (n/a)
+  Single-precision Floating-point support         (core)
+    Denormals                                     Yes
+    Infinity and NANs                             Yes
+    Round to nearest                              Yes
+    Round to zero                                 No
+    Round to infinity                             No
+    IEEE754-2008 fused multiply-add               No
+    Support is emulated in software               No
+    Correctly-rounded divide and sqrt operations  No
+  Double-precision Floating-point support         (cl_khr_fp64)
+    Denormals                                     Yes
+    Infinity and NANs                             Yes
+    Round to nearest                              Yes
+    Round to zero                                 Yes
+    Round to infinity                             Yes
+    IEEE754-2008 fused multiply-add               Yes
+    Support is emulated in software               No
+    Correctly-rounded divide and sqrt operations  No
+  Address bits                                    64, Little-Endian
+  Global memory size                              8252817408 (7.686GiB)
+  Error Correction support                        No
+  Max memory allocation                           2063204352 (1.922GiB)
+  Unified memory for Host and Device              Yes
+  Minimum alignment for any data type             128 bytes
+  Alignment of base address                       1024 bits (128 bytes)
+  Global Memory cache type                        Read/Write
+  Global Memory cache size                        262144
+  Global Memory cache line                        64 bytes
+  Image support                                   Yes
+    Max number of samplers per kernel             480
+    Max size for 1D images from buffer            128950272 pixels
+    Max 1D or 2D image array size                 2048 images
+    Max 2D image size                             16384x16384 pixels
+    Max 3D image size                             2048x2048x2048 pixels
+    Max number of read image args                 480
+    Max number of write image args                480
+  Local memory type                               Global
+  Local memory size                               32768 (32KiB)
+  Max constant buffer size                        131072 (128KiB)
+  Max number of constant args                     480
+  Max size of kernel argument                     3840 (3.75KiB)
+  Queue properties                                
+    Out-of-order execution                        Yes
+    Profiling                                     Yes
+    Local thread execution (Intel)                Yes
+  Prefer user sync for interop                    No
+  Profiling timer resolution                      1ns
+  Execution capabilities                          
+    Run OpenCL kernels                            Yes
+    Run native kernels                            Yes
+    SPIR versions                                 1.2
+  printf() buffer size                            1048576 (1024KiB)
+  Built-in kernels                                
+  Device Available                                Yes
+  Compiler Available                              Yes
+  Linker Available                                Yes
+  Device Extensions                               cl_khr_icd cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store cl_khr_depth_images cl_khr_3d_image_writes cl_intel_exec_by_local_thread cl_khr_spir cl_khr_fp64 
+
+  Platform Name                                   NVIDIA CUDA
+Number of devices                                 1
+  Device Name                                     GeForce GT 720M
+  Device Vendor                                   NVIDIA Corporation
+  Device Vendor ID                                0x10de
+  Device Version                                  OpenCL 1.1 CUDA
+  Driver Version                                  340.96
+  Device OpenCL C Version                         OpenCL C 1.1 
+  Device Type                                     GPU
+  Device Profile                                  FULL_PROFILE
+  Device Topology (NV)                            PCI-E, 01:00.0
+  Max compute units                               2
+  Max clock frequency                             1250MHz
+  Compute Capability (NV)                         2.1
+  Max work item dimensions                        3
+  Max work item sizes                             1024x1024x64
+  Max work group size                             1024
+  Preferred work group size multiple              32
+  Warp size (NV)                                  32
+  Preferred / native vector sizes                 
+    char                                                 1 / 1       
+    short                                                1 / 1       
+    int                                                  1 / 1       
+    long                                                 1 / 1       
+    half                                                 0 / 0        (n/a)
+    float                                                1 / 1       
+    double                                               1 / 1        (cl_khr_fp64)
+  Half-precision Floating-point support           (n/a)
+  Single-precision Floating-point support         (core)
+    Denormals                                     Yes
+    Infinity and NANs                             Yes
+    Round to nearest                              Yes
+    Round to zero                                 Yes
+    Round to infinity                             Yes
+    IEEE754-2008 fused multiply-add               Yes
+    Support is emulated in software               No
+    Correctly-rounded divide and sqrt operations  No
+  Double-precision Floating-point support         (cl_khr_fp64)
+    Denormals                                     Yes
+    Infinity and NANs                             Yes
+    Round to nearest                              Yes
+    Round to zero                                 Yes
+    Round to infinity                             Yes
+    IEEE754-2008 fused multiply-add               Yes
+    Support is emulated in software               No
+    Correctly-rounded divide and sqrt operations  No
+  Address bits                                    32, Little-Endian
+  Global memory size                              2147221504 (2GiB)
+  Error Correction support                        No
+  Max memory allocation                           536805376 (511.9MiB)
+  Unified memory for Host and Device              No
+  Integrated memory (NV)                          No
+  Minimum alignment for any data type             128 bytes
+  Alignment of base address                       4096 bits (512 bytes)
+  Global Memory cache type                        Read/Write
+  Global Memory cache size                        32768
+  Global Memory cache line                        128 bytes
+  Image support                                   Yes
+    Max number of samplers per kernel             16
+    Max 2D image size                             32768x32768 pixels
+    Max 3D image size                             2048x2048x2048 pixels
+    Max number of read image args                 128
+    Max number of write image args                8
+  Local memory type                               Local
+  Local memory size                               49152 (48KiB)
+  Registers per block (NV)                        32768
+  Max constant buffer size                        65536 (64KiB)
+  Max number of constant args                     9
+  Max size of kernel argument                     4352 (4.25KiB)
+  Queue properties                                
+    Out-of-order execution                        Yes
+    Profiling                                     Yes
+  Profiling timer resolution                      1000ns
+  Execution capabilities                          
+    Run OpenCL kernels                            Yes
+    Run native kernels                            No
+    Kernel execution timeout (NV)                 Yes
+  Concurrent copy and kernel execution (NV)       Yes
+    Number of async copy engines                  1
+  Device Available                                Yes
+  Compiler Available                              Yes
+  Device Extensions                               cl_khr_byte_addressable_store cl_khr_icd cl_khr_gl_sharing cl_nv_compiler_options cl_nv_device_attribute_query cl_nv_pragma_unroll cl_nv_copy_opts  cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_khr_fp64 
+
+NULL platform behavior
+  clGetPlatformInfo(NULL, CL_PLATFORM_NAME, ...)  No platform
+  clGetDeviceIDs(NULL, CL_DEVICE_TYPE_ALL, ...)   No platform
+  clCreateContext(NULL, ...) [default]            No platform
+  clCreateContext(NULL, ...) [other]              Success [INTEL]
+  clCreateContextFromType(NULL, CL_DEVICE_TYPE_CPU)  No platform
+  clCreateContextFromType(NULL, CL_DEVICE_TYPE_GPU)  No platform
+  clCreateContextFromType(NULL, CL_DEVICE_TYPE_ACCELERATOR)  No platform
+  clCreateContextFromType(NULL, CL_DEVICE_TYPE_CUSTOM)  No platform
+  clCreateContextFromType(NULL, CL_DEVICE_TYPE_ALL)  No platform
+  \end{lstlisting}
+
+  Here is a performance comparison between Intel CPU and NVIDIA GPU on my laptop. The input image is 1080p
+  (1920 x 1080 = 2073600px $\approx$ 2Mpx) which is a common resolution nowadays for consumer displays and video
+  recording devices.
+
+  \begin{lstlisting}
+$ time ./pfft -vp 0 colorful-pattern-backgrounds-1.png 
+Using OpenCL platform: Intel(R) OpenCL
+Using OpenCL device:        Intel(R) Core(TM) i5-3230M CPU @ 2.60GHz
+Build succeeded.
+Compilation started
+Compilation done
+Linking started
+Linking done
+Device build started
+Device build done
+Kernel <inputX> was not vectorized
+Kernel <inputY> was not vectorized
+Kernel <inputZ> was not vectorized
+Kernel <outputX> was successfully vectorized (8)
+Kernel <outputY> was successfully vectorized (8)
+Kernel <outputZ> was successfully vectorized (8)
+Done.
+4 warnings generated.
+4 warnings generated.
+
+real  0m7.804s
+user  0m8.964s
+sys 0m0.088s
+$ time ./pfft -vp 1 colorful-pattern-backgrounds-1.png 
+Using OpenCL platform: NVIDIA CUDA
+Using OpenCL device: GeForce GT 720M
+Build succeeded.
+
+
+
+real  0m2.305s
+user  0m2.032s
+sys 0m0.272s
+  \end{lstlisting}
+
+  One can see that GPU is approximately 3.8x faster than CPU on my laptop for this task.
+
+  However, debugging an OpenCL program is quite a hassle. It seems CPU cannot handle a very large image
+  ($\approx$10Mpx) and yields out of resources error (-5) while GPU handles this well. But GPU fails on a smaller image
+  ($\approx$1.7Mpx) and yields segmentation fault while CPU handles it well. All of the test samples are included in
+  test.tar.gz as well as the binary pfft compiled under Ubuntu 14.04 x86\_64.
+
+  \begin{lstlisting}
+$ time ./pfft -vp 0 Inside_the_Batad_rice_terraces.png 
+Using OpenCL platform: Intel(R) OpenCL
+Using OpenCL device:        Intel(R) Core(TM) i5-3230M CPU @ 2.60GHz
+Build succeeded.
+Compilation started
+Compilation done
+Linking started
+Linking done
+Device build started
+Device build done
+Kernel <inputX> was not vectorized
+Kernel <inputY> was not vectorized
+Kernel <inputZ> was not vectorized
+Kernel <outputX> was successfully vectorized (8)
+Kernel <outputY> was successfully vectorized (8)
+Kernel <outputZ> was successfully vectorized (8)
+Done.
+4 warnings generated.
+4 warnings generated.
+clfftEnqueueTransform failed with code -5
+
+real  0m5.797s
+user  0m6.068s
+sys 0m0.112s
+$ time ./pfft -vp 1 19267159-Abstract-hand-drawn-tile-seamless-Colorful-pattern-Stock-Vector.png 
+Using OpenCL platform: NVIDIA CUDA
+Using OpenCL device: GeForce GT 720M
+Build succeeded.
+
+
+Segmentation fault
+
+real  0m0.112s
+user  0m0.080s
+sys 0m0.028s
+  \end{lstlisting}
+
+
+  \section{Further improvements}
+
+  By using CPU, GPU and possibly other computing devices simultaneously one achieve maximum speed possible. But some
+  modification needs to be done to accomplish this including assigning different part of image to different computing
+  devices. One can also use MPI or OpenMP to communicate between different devices to achieve even faster speed.
+
+
+\end{document}
